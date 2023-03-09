@@ -121,7 +121,7 @@ async def generate(inter: disnake.AppCmdInter,
     options = parse_from_options(options, {"prompt": prompt, "negative_prompt": negative_prompt, "size": size, "steps": steps, "sampler_index": sampler, "seed": seed, "cfg_scale": cfg_scale, "init_image": init_image, "init_mask": init_mask, "denoising_strength": denoising_strength})
 
 
-    embed = disnake.Embed(title="Prompt Settings", url="https://growgettercomics.com/") 
+    embed = disnake.Embed(title="Prompt Settings") 
     embed.add_field(name="Author", value=inter.author.display_name, inline=False)
     view = RowButtons()
 

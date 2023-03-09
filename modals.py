@@ -333,7 +333,7 @@ class PromptModal(disnake.ui.Modal):
 
     # The callback received when the user input is completed.
     async def callback(self, inter: disnake.ModalInteraction):
-        embed = disnake.Embed(title="Prompt Creation", url="https://growgettercomics.com/")
+        embed = disnake.Embed(title="Prompt Creation")
         options = parse("")
         options = vars(options[0])
 
