@@ -1,0 +1,11 @@
+{
+    "discord_key": "discord_key",
+    "server": ["server_id"],
+    "channels": [
+        {
+	    "api": "http://localhost:7860",
+	    "model": "model_name",
+	    "id": "channel_id"
+	}
+    ]
+}

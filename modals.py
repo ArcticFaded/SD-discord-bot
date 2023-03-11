@@ -12,6 +12,7 @@ import time
 import os
 from typing import Optional
 import sqlite3
+from db_utils import save_generation 
 import re
 import uuid
 
@@ -237,21 +238,8 @@ class RowButtons(disnake.ui.View):
         After a request is shared we store the information,
         entirely optional comment out if you dont need it
         """
-        conn = sqlite3.connect("record.db")
-        cursor = conn.cursor()
+        save_generation(image_url, options["prompt"], options["author"], model)
 
-        if inter.channel_id in models_:
-            model = models_[inter.channel_id]
-        else:
-            model = "Unknown"
-
-        if "negative_prompt" in options:
-            options["prompt"] = options["prompt"] + "[" + options["negative_prompt"] + "]"
-        cursor.execute("INSERT INTO share(image_url, prompt, author, model, processed) VALUES (?,?,?,?,?)", 
-                (image_url, options["prompt"], options["author"], model, 0))
-        conn.commit()
-        cursor.close()
-        conn.close()
 
     @disnake.ui.button(label="Show-Prompt", style=ButtonStyle.green)
     async def fifth_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):

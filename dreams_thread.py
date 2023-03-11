@@ -8,7 +8,9 @@ import time
 from PIL import PngImagePlugin
 import uuid
 from PIL import Image, ImageOps
+import json
 
+config = json.load(open("config.json"))
 counter = { 
     "time": time.time(), 
     "count": 0 
@@ -25,8 +27,7 @@ Example:
 
 Used for the purpose of tagging rich metadata
 """
-models_ = {
-}
+models_ = {cfg["id"]: cfg["model"] for cfg in config.get("channels", [])}
 """
 servers_ is a mapping from channel id -> webui server
 Example:
@@ -34,8 +35,7 @@ Example:
     1231412412: "http://localhost:7860"
 }
 """
-server_ = {
-}
+server_ = {cfg["id"]: cfg["api"] for cfg in config.get("channels", [])}
 
 queues = {item: [] for item in server_}
 threads = {item: None for item in server_}

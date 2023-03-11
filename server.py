@@ -19,7 +19,10 @@ output = None
 from dreams_thread import submit_dream, queues, counter
 from datetime import timedelta
 from commands import get_command_parser
-from modals import PromptModal, ImageModal, InpaintingModal, RowButtons, VisibleRowButtons   
+from modals import PromptModal, RowButtons, VisibleRowButtons   
+import json
+
+config = json.load(open("config.json"))
 
 def parse(message):
     try:
@@ -53,7 +56,7 @@ class PersistentViewBot(commands.InteractionBot):
 """
 REQUIRED: specify your server ID here
 """
-bot = PersistentViewBot(test_guilds=[])
+bot = PersistentViewBot(test_guilds=config.get("server", []))
 
 
 @bot.slash_command(description="bot usage stats")

@@ -1,10 +1,15 @@
 from server import bot
 import asyncio
 import os
+from db_utils import create_table
+import json
 
-bot_token = os.environ.get("discord_key", None)
+config = json.load(open("config.json"))
+
+bot_token = config.get("discord_key", None)
 async def run():
     try:
+        create_table()
         await bot.start(bot_token)
     except KeyboardInterrupt:
         await bot.close()
