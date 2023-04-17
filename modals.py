@@ -15,6 +15,8 @@ import sqlite3
 from db_utils import save_generation 
 import re
 import uuid
+from cache_prompt import get_prompt, put_prompt
+import json
 
 def parse(message):
     try:
@@ -35,6 +37,8 @@ def extract_for_processing(embed):
     return options
 
 def extract_from_pnginfo(pnginfo, embed):
+    if pnginfo is None or len(pnginfo) == 0:
+        pnginfo = get_prompt(embed.image.url.split("/")[-1])
     parameters = pnginfo.get("parameters", None)
     init_image = pnginfo.get("init_image", None)
     init_mask = pnginfo.get("init_mask", None)
@@ -230,6 +234,7 @@ class RowButtons(disnake.ui.View):
         image.save(arr, format='PNG', pnginfo=pnginfo_data)
         arr.seek(0)
         image_name = f'{str(uuid.uuid4())}.png'
+        put_prompt(image_name, image.info)
         file = disnake.File(fp=arr, filename=image_name)
         embed.set_image(url=f"attachment://{image_name}")
         await inter.response.send_message(file=file, view=view, embed=embed)

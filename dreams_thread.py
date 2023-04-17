@@ -9,6 +9,7 @@ from PIL import PngImagePlugin
 import uuid
 from PIL import Image, ImageOps
 import json
+from cache_prompt import put_prompt
 
 config = json.load(open("config.json"))
 counter = { 
@@ -122,17 +123,23 @@ def dream(event_loop, queue_object):
         seed = parameters['seed']
         arr = io.BytesIO()
 
+        pngcache = {}
         pnginfo_data = PngImagePlugin.PngInfo()
         pnginfo_data.add_text("parameters", pnginfo["infotexts"][0])
+        pngcache["parameters"] = pnginfo["infotexts"][0]
         if "init_image" in options and options["init_image"]:
             if isinstance(options['init_image'], str):
+                pngcache["init_image"] = options["init_image"]
                 pnginfo_data.add_text("init_image", options["init_image"])
             else:
+                pngcache["init_image"] = options["init_image"].url
                 pnginfo_data.add_text("init_image", options["init_image"].url)
         if "init_mask" in options and options["init_mask"]:
             if isinstance(options['init_mask'], str):
+                pngcache["init_mask"] = options["init_mask"]
                 pnginfo_data.add_text("init_mask", options["init_mask"])
             else:
+                pngcache["init_mask"] = options["init_mask"].url
                 pnginfo_data.add_text("init_mask", options["init_mask"].url)
         """
         images is an array because it is possible to generate multiple images at once in a
@@ -143,7 +150,7 @@ def dream(event_loop, queue_object):
         images[0] = add_watermark(images[0])
         images[0].save(arr, format='PNG', pnginfo=pnginfo_data)
         arr.seek(0)
-
+        put_prompt(image_name, pngcache)
         file = disnake.File(fp=arr, filename=image_name)
         embeds[0].set_image(url=f"attachment://{image_name}")
         event_loop.create_task(inter.followup.send(file=file, view=view, embeds=embeds, ephemeral=True))
