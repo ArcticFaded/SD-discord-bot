@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from dynamicprompts.generators import RandomPromptGenerator
 from dynamicprompts.wildcards import WildcardManager
@@ -10,7 +11,7 @@ generator = RandomPromptGenerator(wildcard_manager=wm)
 
 
 def get_index():
-    return json.load(config["prompts"]["index_path"])
+    return json.load(open(config["prompts"]["index_path"]))
     
 def replace_wildcards(text):
     index = get_index()
