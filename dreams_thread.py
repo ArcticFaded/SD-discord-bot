@@ -11,6 +11,8 @@ from PIL import Image, ImageOps
 import json
 from cache_prompt import put_prompt
 
+from prompts import fluff_prompt
+
 config = json.load(open("config.json"))
 counter = { 
     "time": time.time(), 
@@ -73,9 +75,9 @@ def create_image(options, inter, event_loop):
         options["prompt"] = positive
         options["negative_prompt"] = negative
     
-    options["prompt"] = options["prompt"].replace("teen", "")
-    options["prompt"] = options["prompt"].replace("young", "")
-
+    options["prompt"], options["restore_faces"] = fluff_prompt(options["prompt"])
+    options["negative_prompt"], _ = fluff_prompt(options["negative_prompt"])
+    
     """
     The server also supports using webui with img2img
     """
