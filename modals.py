@@ -18,6 +18,8 @@ import uuid
 from cache_prompt import get_prompt, put_prompt
 import json
 
+config = json.load(open("config.json"))
+
 def parse(message):
     try:
         command_parser = get_command_parser()
@@ -84,8 +86,8 @@ def extract_from_pnginfo(pnginfo, embed):
             options[key] = max(float(value), 1.1)
         elif key == 'size':
             width, height = value.split("x")
-            options["width"] = min(int(width), 768)
-            options["height"] = min(int(height), 768)
+            options["width"] = min(int(width), 960)
+            options["height"] = min(int(height), 960)
     return options, fields['seed']
 
 def extract_from_embeds(embed):
@@ -109,7 +111,7 @@ def extract_from_embeds(embed):
                 if key == 'steps':
                     options[key] = int(value)
                 elif key == 'width'or key == 'height':
-                    options[key] = min(int(value), 1024)
+                    options[key] = min(int(value), 960)
                 elif key == 'cfg_scale':
                     options[key] = max(float(value), 1.1)
                 elif key == 'strength':
@@ -129,7 +131,16 @@ class VisibleRowButtons(disnake.ui.View):
         image = Image.open(BytesIO(attachment))
         options, seed = extract_from_pnginfo(image.info, inter.message.embeds[0])
 
-        sizes = { 512: {512: "square", 768: "portrait"}, 768: {512: "landscape"} }
+        sizes = { 
+            config['image']['min_width']: {
+                config['image']['min_height']: "square", 
+                config['image']['max_height']: "portrait"
+            },
+            config['image']['max_width']: {
+                config['image']['min_height']: "landscape"
+            }
+        }
+        
         if "negative_prompt" in options:
             options["prompt"] += f"[{options['negative_prompt']}]"
 
@@ -148,7 +159,16 @@ class VisibleRowButtons(disnake.ui.View):
         image = Image.open(BytesIO(attachment))
         options, seed = extract_from_pnginfo(image.info, inter.message.embeds[0])
 
-        sizes = { 512: {512: "square", 768: "portrait"}, 768: {512: "landscape"} }
+        sizes = {
+            config['image']['min_width']: {
+                config['image']['min_height']: "square",
+                config['image']['max_height']: "portrait"
+            },  
+            config['image']['max_width']: {
+                config['image']['min_height']: "landscape"
+            }   
+        }
+
         generate = "/generate "
         for option, value in options.items():
             if option in ["width", "height", "seed", "denoising_strength", "init_image"]:
@@ -202,7 +222,16 @@ class RowButtons(disnake.ui.View):
         image = Image.open(BytesIO(attachment))
         options, seed = extract_from_pnginfo(image.info, inter.message.embeds[0])
 
-        sizes = { 512: {512: "square", 768: "portrait"}, 768: {512: "landscape"} }
+        sizes = {
+            config['image']['min_width']: {
+                config['image']['min_height']: "square",
+                config['image']['max_height']: "portrait"
+            },  
+            config['image']['max_width']: {
+                config['image']['min_height']: "landscape"
+            }   
+        }
+
         if "negative_prompt" in options:
             options["prompt"] += f"[{options['negative_prompt']}]"
 
@@ -251,8 +280,17 @@ class RowButtons(disnake.ui.View):
         attachment = requests.get(inter.message.embeds[0].image.proxy_url).content
         image = Image.open(BytesIO(attachment))
         options, seed = extract_from_pnginfo(image.info, inter.message.embeds[0])
+        
+        sizes = {
+            config['image']['min_width']: {
+                config['image']['min_height']: "square",
+                config['image']['max_height']: "portrait"
+            },
+            config['image']['max_width']: {
+                config['image']['min_height']: "landscape"
+            }
+        }
 
-        sizes = { 512: {512: "square", 768: "portrait"}, 768: {512: "landscape"} }
         generate = "/generate "
         for option, value in options.items():
             if option in ["width", "height", "seed", "denoising_strength", "init_image"]:
@@ -288,7 +326,7 @@ class PromptModal(disnake.ui.Modal):
             ),
             disnake.ui.TextInput(
                 label="CFG Guidence",
-                placeholder="7.5",
+                placeholder="3",
                 value=cfg_scale,
                 custom_id="cfg_scale",
                 style=TextInputStyle.short,
@@ -330,7 +368,9 @@ class PromptModal(disnake.ui.Modal):
         options = parse("")
         options = vars(options[0])
 
-        sizes = {"square": (512,512), "portrait": (512,768), "landscape": (768,512)} 
+        sizes = {"square": (config["image"]['min_width'], config["image"]['min_height']),
+             "portrait": (config["image"]['min_width'], config["image"]['max_height']),
+             "landscape": (config["image"]['max_width'], config["image"]['min_height'])} 
         
         for key, value in inter.text_values.items():
             if value == "":

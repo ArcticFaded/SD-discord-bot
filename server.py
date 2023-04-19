@@ -80,7 +80,9 @@ async def test_prompt(inter, message: str):
     await inter.response.send_message(view=view, embed=embed, ephemeral=True)
 
 def parse_from_options(options, parameters):
-    sizes = {"square": (512,512), "portrait": (512,768), "landscape": (768,512)}
+    sizes = {"square": (config["image"]['min_width'], config["image"]['min_height']),
+             "portrait": (config["image"]['min_width'], config["image"]['max_height']),
+             "landscape": (config["image"]['max_width'], config["image"]['min_height'])}
 
     for key, value in parameters.items():
         if key == 'steps':
@@ -110,10 +112,10 @@ async def generate(inter: disnake.AppCmdInter,
         prompt: str, 
         negative_prompt:str = None,
         size: str = "square",
-        steps: int = 20,
-        sampler: str = "Euler a",
+        steps: int = config['default_steps'],
+        sampler: str = config['default_sampler'],
         seed: int = -1,
-        cfg_scale: float = 7.5,
+        cfg_scale: float = config['default_cfg'],
         denoising_strength: float = 0.6,
         init_image: disnake.Attachment = None,
         init_mask: disnake.Attachment = None

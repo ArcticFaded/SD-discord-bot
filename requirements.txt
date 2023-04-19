@@ -2,3 +2,4 @@ disnake
 apscheduler
 pillow
 requests
+dynamicprompts

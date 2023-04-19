@@ -7,5 +7,18 @@
 	    "model": "model_name",
 	    "id": "channel_id"
 	}
-    ]
+    ],
+    "image": {
+        "min_width": 512,
+	"max_width": 768,
+	"min_height": 512,
+	"max_height": 768
+    },
+    "prompts": {
+        "wildcard_path": "/your/path/here",
+	"index_path": "/your/index/here"
+    },
+    "default_steps": 20,
+    "default_cfg": 7,
+    "default_sampler": "Euler A"
 }

@@ -7,7 +7,7 @@ def create_table():
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute('''CREATE TABLE IF NOT EXIST share (id INTEGER PRIMARY KEY AUTOINCREMENT, image_url TEXT NOT NULL, prompt TEXT NOT NULL, author TEXT NOT NULL, model TEXT NOT NULL, processed INTEGER NOT NULL, Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS share (id INTEGER PRIMARY KEY AUTOINCREMENT, image_url TEXT NOT NULL, prompt TEXT NOT NULL, author TEXT NOT NULL, model TEXT NOT NULL, processed INTEGER NOT NULL, Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
     conn.commit()
     conn.close()
 
