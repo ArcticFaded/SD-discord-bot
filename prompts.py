@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from dynamicprompts.generators import RandomPromptGenerator
 from dynamicprompts.wildcards import WildcardManager
+import re
+
 
 config = json.load(open("config.json"))
 
