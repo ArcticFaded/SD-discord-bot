@@ -31,13 +31,11 @@ def replace_wildcards(text):
 
 def fluff_prompt(prompt, test_restore=False):
     wild_prompt = replace_wildcards(prompt)
-    wild_negative_prompt = replace_wildcards(negative_prompt)
-    
     
     restore_face = False
     if test_restore:
         for i in ["a1", "a2", "b1", "b2"]:
-            if i in wild_prompt or i in wild_negative_prompt:
+            if i in wild_prompt:
                 restore_face = True
                 break
 
