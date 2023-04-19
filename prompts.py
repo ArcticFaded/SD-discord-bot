@@ -27,7 +27,7 @@ def replace_wildcards(text):
     return result
 
 
-def fluff_prompt(prompt, negative_prompt, test_restore=False):
+def fluff_prompt(prompt, test_restore=False):
     wild_prompt = replace_wildcards(prompt)
     wild_negative_prompt = replace_wildcards(negative_prompt)
     
@@ -39,4 +39,4 @@ def fluff_prompt(prompt, negative_prompt, test_restore=False):
                 restore_face = True
                 break
 
-    return generator.generate(wild_prompt, 1)[0], generator.generate(wild_negative_prompt, 1)[0], restore_face
+    return generator.generate(wild_prompt, 1)[0], restore_face

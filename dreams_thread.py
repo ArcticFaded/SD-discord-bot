@@ -75,7 +75,7 @@ def create_image(options, inter, event_loop):
         options["prompt"] = positive
         options["negative_prompt"] = negative
     
-    options["prompt"], options["restore_faces"] = fluff_prompt(options["prompt"])
+    options["prompt"], options["restore_faces"] = fluff_prompt(options["prompt"], True)
     options["negative_prompt"], _ = fluff_prompt(options["negative_prompt"])
     
     """
