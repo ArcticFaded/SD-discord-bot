@@ -11,7 +11,7 @@ generator = RandomPromptGenerator(wildcard_manager=wm)
 
 
 def get_index():
-    return json.load(open(config["prompts"]["index_path"]))
+    return json.load(open(Path(config["prompts"]["index_path"])))
     
 def replace_wildcards(text):
     index = get_index()
