@@ -3,3 +3,4 @@ apscheduler
 pillow
 requests
 dynamicprompts
+aiohttp
