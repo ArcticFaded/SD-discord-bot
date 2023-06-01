@@ -4,6 +4,7 @@ import requests
 from PIL import Image, ImageOps
 import base64
 import json
+import aiohttp
 
 def extras():
     pass
@@ -26,8 +27,16 @@ def extract_image(bytearr):
 
     return buffer_, width, height
 
-def img2img(prompt: str,
-            event_loop,
+async def download_attachment(attachment):
+    async with aiohttp.ClientSession() as session:
+        if isinstance(attachment, str):
+            async with session.get(attachment, timeout=15) as resp:
+                return await resp.content.read()
+        else:
+            async with session.get(attachment.url, timeout=15) as resp:
+                return await resp.content.read()
+
+async def img2img(prompt: str,
             negative_prompt: str = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
             steps: int = 28,
             sampler_index: str = "Euler",
@@ -41,13 +50,10 @@ def img2img(prompt: str,
             init_mask: any = None,
             denoising_strength: float = 0.6,
             *args):
-    if isinstance(init_image, str):
-        attachment = requests.get(init_image).content
-    else:
-        attachment = requests.get(init_image.url).content
+    attachment = await download_attachment(init_image)
     mask_attachment = None
     if init_mask:
-        mask_attachment = requests.get(init_mask).content if isinstance(init_mask, str) else requests.get(init_mask.url).content
+        mask_attachment = await download_attachment(init_mask)
     image, width, height = extract_image(attachment)
     payload = {
         "prompt":prompt,
@@ -67,8 +73,10 @@ def img2img(prompt: str,
         mask_image, _, _ = extract_image(mask_attachment)
         payload["mask"] = "data:image/png;base64," + base64.b64encode(mask_image.getvalue()).decode()
 
-    resp = requests.post(url=f"{server_}/sdapi/v1/img2img", json=payload)
-    resp = resp.json()
+    async with aiohttp.ClientSession() as session:
+        async with session.post(f"{server_}/sdapi/v1/img2img", json=payload, timeout=180) as response:
+            resp = await response.json()
+    
     images = resp["images"]
     for i in range(len(images)):
         if "," in images[i]:
@@ -84,7 +92,7 @@ def img2img(prompt: str,
     return processed, resp["parameters"], pnginfo
 
 
-def txt2img(prompt: str, 
+async def txt2img(prompt: str,
             negative_prompt: str = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry", 
             steps: int = 28, 
             sampler_index: str = "Euler", 
@@ -109,8 +117,9 @@ def txt2img(prompt: str,
         "seed": seed
     }
     
-    resp = requests.post(url=f"{server_}/sdapi/v1/txt2img", json=payload)
-    resp = resp.json()
+    async with aiohttp.ClientSession() as session:
+        async with session.post(f"{server_}/sdapi/v1/txt2img", json=payload, timeout=180) as response:
+            resp = await response.json()
     images = resp["images"]
     for i in range(len(images)):
         if "," in images[i]:

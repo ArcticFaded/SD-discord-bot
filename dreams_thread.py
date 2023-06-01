@@ -59,7 +59,7 @@ def add_watermark(image):
         image.paste(resized, (size[0]-32,size[1]-128), resized)
     return image
 
-def create_image(options, inter, event_loop):
+async def create_image(options, inter):
     """
     This parsing code is to allow for flexable usage of negative prompts between
     /generate and /prompts
@@ -82,13 +82,13 @@ def create_image(options, inter, event_loop):
     The server also supports using webui with img2img
     """
     if "init_image" in options and options["init_image"]:
-        return img2img(**(options), event_loop=event_loop)
+        return await img2img(**(options))
     else:
         if "init_image" in options: 
             if "init_image" in options: del options["init_image"]
             if "init_mask" in options: del options["init_mask"]
             if "denoising_strength" in options: del options["denoising_strength"]
-        return txt2img(**(options))
+        return await txt2img(**(options))
 
 
 async def submit_dream(channel_id, queue_object):
@@ -101,23 +101,22 @@ async def submit_dream(channel_id, queue_object):
             await queue_object['inter'].followup.send("you already have a work in the queue!", ephemeral=True)
             return
 
-    if threads[channel_id] and threads[channel_id].is_alive():
+    if threads[channel_id] and not threads[channel_id].done():
         queues[channel_id].append(queue_object)
     else:
-        threads[channel_id] = Thread(target=dream, args=(event_loop, queue_object)) 
-        threads[channel_id].start()
+        threads[channel_id] = asyncio.create_task(dream(queue_object))
 
-def dream(event_loop, queue_object):
+async def dream(queue_object):
     inter = queue_object["inter"]
 
     if queue_object["opts"] is None:
-        event_loop.task(inter.followup.send("Error when parsing your request"))
+        await inter.followup.send("Error when parsing your request")
     else:
         options = queue_object["opts"]
         embed = queue_object["embed"]
         view = queue_object["view"]
         options["server_"] = server_[inter.channel_id]
-        images, parameters, pnginfo = create_image(options, inter, event_loop)
+        images, parameters, pnginfo = await create_image(options, inter)
         embeds = [embed] 
         seed = parameters['seed']
         image_name = f'{str(uuid.uuid4())}.png'
@@ -155,8 +154,8 @@ def dream(event_loop, queue_object):
         put_prompt(image_name, pngcache)
         file = disnake.File(fp=arr, filename=image_name)
         embeds[0].set_image(url=f"attachment://{image_name}")
-        event_loop.create_task(inter.followup.send(file=file, view=view, embeds=embeds, ephemeral=True))
+        await inter.followup.send(file=file, view=view, embeds=embeds, ephemeral=True)
         # event_loop.create_task(inter.followup.send(files=files, view=view, embeds=embeds, ephemeral=True))
     if queues[inter.channel_id]:
-        event_loop.create_task(submit_dream(inter.channel_id, queues[inter.channel_id].pop(0)))
-
+        asyncio.create_task(dream(queues[channel_id].pop(0)))
+ 
