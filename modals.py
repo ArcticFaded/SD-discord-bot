@@ -7,7 +7,9 @@ import shlex
 from PIL import Image, PngImagePlugin
 from io import BytesIO
 from commands import get_command_parser
-from dreams_thread import submit_dream, queues, counter, models_
+from temporal_client import temporal_client
+from share_cache import share_cache
+from dreams_thread import models_
 import time
 import os
 from typing import Optional
@@ -252,26 +254,82 @@ class RowButtons(disnake.ui.View):
         image = Image.open(BytesIO(attachment))
         options, seed = extract_from_pnginfo(image.info, inter.message.embeds[0])
         embed = inter.message.embeds[0]
-        # print(image, len(attachment)) 
         options['author'] = embed.fields[0].value
-        # if "init_image" in options and options['init_image'] and options['init_image'] != 'None':
+        
+        # Check if similar prompt was recently shared
+        prompt_text = options.get("prompt", "")
+        channel_id = str(inter.channel_id)
+        is_similar, existing_thread_id = share_cache.check_similar_prompt(prompt_text, channel_id)
+        
+        # Prepare the image
         arr = BytesIO()
-
         pnginfo_data = PngImagePlugin.PngInfo()
-        pnginfo_data.add_text("parameters", image.info['parameters']) 
-
+        pnginfo_data.add_text("parameters", image.info['parameters'])
         image.save(arr, format='PNG', pnginfo=pnginfo_data)
         arr.seek(0)
         image_name = f'{str(uuid.uuid4())}.png'
         put_prompt(image_name, image.info)
         file = disnake.File(fp=arr, filename=image_name)
         embed.set_image(url=f"attachment://{image_name}")
-        await inter.response.send_message(file=file, view=view, embed=embed)
+        
+        # Handle thread creation or posting
+        if is_similar and existing_thread_id:
+            # Post to existing thread
+            try:
+                thread = inter.channel.get_thread(int(existing_thread_id))
+                if thread and not thread.archived:
+                    await thread.send(file=file, view=view, embed=embed)
+                    await inter.response.send_message(
+                        f"✅ Shared to thread: {thread.mention}", 
+                        ephemeral=True
+                    )
+                else:
+                    # Thread not found or archived, create new one
+                    await inter.response.send_message(file=file, view=view, embed=embed)
+                    message = await inter.original_message()
+                    thread_name = f"🎨 {prompt_text[:50]}..." if len(prompt_text) > 50 else f"🎨 {prompt_text}"
+                    thread = await message.create_thread(
+                        name=thread_name,
+                        auto_archive_duration=1440  # 24 hours
+                    )
+                    prompt_hash = share_cache.record_share(prompt_text, channel_id, str(thread.id))
+                    share_cache.update_thread_id(prompt_hash, channel_id, str(thread.id))
+            except:
+                # Fallback - create new thread if any issues
+                await inter.response.send_message(file=file, view=view, embed=embed)
+                message = await inter.original_message()
+                thread_name = f"🎨 {prompt_text[:50]}..." if len(prompt_text) > 50 else f"🎨 {prompt_text}"
+                thread = await message.create_thread(
+                    name=thread_name,
+                    auto_archive_duration=1440  # 24 hours
+                )
+                share_cache.record_share(prompt_text, channel_id, str(thread.id))
+        else:
+            # Always create a new thread for new prompts
+            await inter.response.send_message(file=file, view=view, embed=embed)
+            
+            # Create thread from the message
+            message = await inter.original_message()
+            thread_name = f"🎨 {prompt_text[:50]}..." if len(prompt_text) > 50 else f"🎨 {prompt_text}"
+            thread = await message.create_thread(
+                name=thread_name,
+                auto_archive_duration=1440  # 24 hours
+            )
+            
+            # Record in cache with thread ID
+            share_cache.record_share(prompt_text, channel_id, str(thread.id))
+            
+            # Post info message in thread if it's first time
+            if not is_similar:
+                await thread.send(
+                    "📌 This thread contains the shared image. Future shares of similar prompts will appear here."
+                )
        
         """
         After a request is shared we store the information,
         entirely optional comment out if you dont need it
         """
+        model = models_.get(inter.channel_id, "unknown")
         save_generation(image_url, options["prompt"], options["author"], model)
 
 

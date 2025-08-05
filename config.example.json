@@ -1,0 +1,32 @@
+{
+    "discord_key": "your_discord_bot_token_here",
+    "server": ["your_server_id"],
+    "channels": [
+        {
+            "id": "channel_id_1",
+            "api": "http://localhost:7860",
+            "backend_type": "diffsynth",
+            "model": "sd",
+            "model_type": "sd"
+        },
+        {
+            "id": "channel_id_2", 
+            "api": "http://localhost:7861",
+            "backend_type": "sdwebui",
+            "model": "model_name"
+        }
+    ],
+    "image": {
+        "min_width": 512,
+        "max_width": 1024,
+        "min_height": 512,
+        "max_height": 1024
+    },
+    "prompts": {
+        "wildcard_path": "/path/to/wildcards",
+        "index_path": "/path/to/index.json"
+    },
+    "default_steps": 20,
+    "default_cfg": 7,
+    "default_sampler": "Euler a"
+}

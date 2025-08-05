@@ -1,0 +1,17 @@
+# Backend dependencies for DiffSynth-Engine
+fastapi
+uvicorn[standard]
+torch>=2.0.0
+torchvision
+torchaudio
+diffsynth
+transformers
+diffusers
+accelerate
+opencv-python
+controlnet-aux
+pydantic
+sentencepiece
+protobuf
+huggingface-hub
+safetensors

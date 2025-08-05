@@ -5,24 +5,26 @@ import io
 from io import BytesIO, StringIO
 from PIL import Image, ImageOps
 import asyncio
-import queue
 import time
 import random
 import requests
 import json
 import os
 import shlex
-
-ready = True
-output = None
-
-from dreams_thread import submit_dream, queues, counter
+from temporal_client import temporal_client
+from share_cache import share_cache
 from datetime import timedelta
 from commands import get_command_parser
 from modals import PromptModal, RowButtons, VisibleRowButtons   
 import json
 
 config = json.load(open("config.json"))
+
+# Statistics tracking
+counter = {
+    "time": time.time(),
+    "count": 0
+}
 
 def parse(message):
     try:
@@ -50,6 +52,9 @@ class PersistentViewBot(commands.InteractionBot):
             # we don't have one.
             self.add_view(VisibleRowButtons())
             self.persistent_views_added = True
+        
+        # Initialize Temporal client
+        await temporal_client.connect()
 
         print(f"Logged in as {self.user} (ID: {self.user.id})\n------")
 
@@ -62,7 +67,18 @@ bot = PersistentViewBot(test_guilds=config.get("server", []))
 @bot.slash_command(description="bot usage stats")
 async def usage(inter):
     running_time = str(timedelta(seconds=time.time() - counter['time']))
-    await inter.response.send_message(f"{counter['count']} request, running time: {running_time}", ephemeral=True)
+    
+    # Get queue status from Temporal
+    queue_status = await temporal_client.get_queue_status(str(inter.channel_id))
+    if queue_status:
+        queue_info = f", Queue: {queue_status.get('queue_length', 0)} pending"
+    else:
+        queue_info = ""
+    
+    await inter.response.send_message(
+        f"{counter['count']} requests, running time: {running_time}{queue_info}", 
+        ephemeral=True
+    )
 
 
 @bot.slash_command(description="Sanity test for prompts")
@@ -106,6 +122,35 @@ def parse_from_options(options, parameters):
     return options
 
 
+async def submit_to_temporal(inter: disnake.AppCmdInter, options: dict, embed: disnake.Embed):
+    """Submit request to Temporal workflow"""
+    # Prepare embed data for reconstruction
+    embed_data = {
+        "title": embed.title,
+        "fields": [{"name": field.name, "value": field.value, "inline": field.inline} 
+                   for field in embed.fields]
+    }
+    
+    # Get the followup URL for responses
+    followup_url = f"https://discord.com/api/webhooks/{inter.application_id}/{inter.token}"
+    
+    # Submit to Temporal - channel validation happens in the workflow
+    success = await temporal_client.submit_image_request(
+        channel_id=str(inter.channel_id),
+        followup_url=followup_url,
+        author_name=inter.author.display_name,
+        author_id=str(inter.author.id),
+        options=options,
+        embed_data=embed_data
+    )
+    
+    if success:
+        counter['count'] += 1
+        return True
+    else:
+        await inter.followup.send("❌ Error submitting request. Please try again.", ephemeral=True)
+        return False
+
 
 @bot.slash_command(description="Power user prompt command")
 async def generate(inter: disnake.AppCmdInter, 
@@ -122,21 +167,91 @@ async def generate(inter: disnake.AppCmdInter,
     ):
     options = parse("")
     options = vars(options[0])
-    counter['count'] += 1 
-    options = parse_from_options(options, {"prompt": prompt, "negative_prompt": negative_prompt, "size": size, "steps": steps, "sampler_index": sampler, "seed": seed, "cfg_scale": cfg_scale, "init_image": init_image, "init_mask": init_mask, "denoising_strength": denoising_strength})
-
+    
+    options = parse_from_options(options, {
+        "prompt": prompt, 
+        "negative_prompt": negative_prompt, 
+        "size": size, 
+        "steps": steps, 
+        "sampler_index": sampler, 
+        "seed": seed, 
+        "cfg_scale": cfg_scale, 
+        "init_image": init_image, 
+        "init_mask": init_mask, 
+        "denoising_strength": denoising_strength
+    })
 
     embed = disnake.Embed(title="Prompt Settings") 
     embed.add_field(name="Author", value=inter.author.display_name, inline=False)
-    view = RowButtons()
+    
+    # Respond immediately
+    await inter.response.defer(ephemeral=True)
+    
+    # Submit to Temporal
+    await submit_to_temporal(inter, options, embed)
 
-    if inter.channel_id not in queues:
-        await inter.response.send_message("Error - unknown channel", ephemeral=True)
-    else:
-        await inter.response.send_message(f"queued!, position: {len(queues[inter.channel_id])}", ephemeral=True)
-        await submit_dream(inter.channel_id, {"inter": inter, "opts": options, "embed": embed, "view": view})
    
 @bot.slash_command(description="Run Prompt in Stable Diffusion")
 async def prompts(inter: disnake.AppCmdInter):
     """Sends a Modal to create a tag."""
     await inter.response.send_modal(modal=PromptModal())
+
+
+@bot.slash_command(description="Show active workflow channels")
+async def active_channels(inter: disnake.AppCmdInter):
+    """Show which channels have active Temporal workflows"""
+    channels = await temporal_client.get_active_channels()
+    if channels:
+        channel_list = "\n".join([f"• <#{ch_id}> → {wf_id}" for ch_id, wf_id in channels.items()])
+        embed = disnake.Embed(
+            title="Active Temporal Workflows",
+            description=channel_list or "No active workflows",
+            color=disnake.Color.green()
+        )
+    else:
+        embed = disnake.Embed(
+            title="Active Temporal Workflows",
+            description="Could not retrieve workflow information",
+            color=disnake.Color.red()
+        )
+    
+    await inter.response.send_message(embed=embed, ephemeral=True)
+
+@bot.slash_command(description="Show sharing cache statistics")
+async def cache_stats(inter: disnake.AppCmdInter):
+    """Show statistics about shared prompts and threads"""
+    stats = share_cache.get_channel_stats(str(inter.channel_id))
+    
+    embed = disnake.Embed(
+        title="📊 Share Cache Statistics",
+        description=f"Stats for this channel (last {stats['window_hours']} hours)",
+        color=disnake.Color.blue()
+    )
+    
+    embed.add_field(
+        name="Unique Prompts",
+        value=str(stats['unique_prompts']),
+        inline=True
+    )
+    embed.add_field(
+        name="Total Shares", 
+        value=str(stats['total_shares']),
+        inline=True
+    )
+    embed.add_field(
+        name="Threads Created",
+        value=str(stats['threads_created']),
+        inline=True
+    )
+    
+    if stats['unique_prompts'] > 0:
+        avg_shares = stats['total_shares'] / stats['unique_prompts']
+        embed.add_field(
+            name="Avg Shares/Prompt",
+            value=f"{avg_shares:.1f}",
+            inline=True
+        )
+    
+    embed.set_footer(text="Cache auto-expires entries after 24 hours")
+    
+    await inter.response.send_message(embed=embed, ephemeral=True)
